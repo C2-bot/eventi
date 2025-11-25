@@ -1833,6 +1833,130 @@
             }
         }
 
+        /* Azioni in Fondo */
+        .bottom-actions {
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, rgba(247, 179, 43, 0.08) 0%, rgba(49, 193, 146, 0.08) 100%);
+            border-radius: 20px;
+            border: 2px solid rgba(247, 179, 43, 0.2);
+        }
+        
+        .bottom-actions-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.3rem;
+            color: #1a1a2e;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .bottom-actions-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .mass-assign-btn, .reset-btn {
+            border: none;
+            padding: 16px 35px;
+            border-radius: 50px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            font-family: 'Montserrat', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .mass-assign-btn {
+            background: linear-gradient(135deg, var(--giallo) 0%, #D4A029 100%);
+            color: #1a1a2e;
+            box-shadow: 0 4px 15px rgba(247, 179, 43, 0.3);
+        }
+        
+        .mass-assign-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(247, 179, 43, 0.5);
+        }
+        
+        .reset-btn {
+            background: linear-gradient(135deg, #e63946 0%, #c41e3a 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+        }
+        
+        .reset-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(230, 57, 70, 0.5);
+        }
+        
+        .mass-assign-btn:active, .reset-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .mass-assign-btn:disabled, .reset-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .bottom-actions-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 12px;
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        
+        .mass-assign-progress {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .mass-assign-progress.active {
+            display: block;
+        }
+        
+        .progress-text {
+            font-size: 0.95rem;
+            color: var(--giallo);
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 10px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--giallo), var(--verde));
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .bottom-actions-buttons {
+                flex-direction: column;
+            }
+            
+            .mass-assign-btn, .reset-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1925,6 +2049,32 @@
             <div class="no-results" id="no-results" style="display: none;">
                 <div class="no-results-icon">🔎</div>
                 <p>Nessun investigatore trovato</p>
+            </div>
+
+            <!-- Azioni in Fondo -->
+            <div class="bottom-actions">
+                <h3 class="bottom-actions-title">⚙️ Azioni Rapide</h3>
+                <div class="bottom-actions-buttons">
+                    <button class="mass-assign-btn" id="mass-assign-btn" onclick="massAssign()">
+                        <span>⚡</span>
+                        <span>Assegnazione Automatica</span>
+                    </button>
+                    <button class="reset-btn" id="reset-btn" onclick="resetAll()">
+                        <span>🔄</span>
+                        <span>Reset Tutto</span>
+                    </button>
+                </div>
+                <div class="mass-assign-progress" id="mass-assign-progress">
+                    <div class="progress-text" id="progress-text">Operazione in corso...</div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="bottom-actions-info">
+                    <strong>Assegnazione Automatica:</strong> Assegna tutti i detective automaticamente rispettando tutte le regole
+                    <br>
+                    <strong>Reset Tutto:</strong> Click per cancellare tutte le assegnazioni e ricominciare da zero
+                </div>
             </div>
         </section>
 
@@ -2871,6 +3021,203 @@
                 snowflake.style.fontSize = (0.6 + Math.random() * 1) + 'rem';
                 snowflake.style.opacity = 0.2 + Math.random() * 0.4;
                 container.appendChild(snowflake);
+            }
+        }
+
+        // ============ ASSEGNAZIONE MASSIVA ============
+        async function massAssign() {
+            const btn = document.getElementById('mass-assign-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const progress = document.getElementById('mass-assign-progress');
+            const progressText = document.getElementById('progress-text');
+            const progressBar = document.getElementById('progress-bar-fill');
+            
+            // Disabilita pulsanti
+            btn.disabled = true;
+            resetBtn.disabled = true;
+            progress.classList.add('active');
+            
+            // Raccogli tutti i partecipanti non assegnati
+            const unassigned = participants.filter(p => {
+                const fullName = getFullName(p);
+                return assignedParticipants[fullName] === undefined;
+            });
+            
+            if (unassigned.length === 0) {
+                progressText.textContent = '✅ Tutti già assegnati!';
+                setTimeout(() => {
+                    btn.disabled = false;
+                    resetBtn.disabled = false;
+                    progress.classList.remove('active');
+                    progressBar.style.width = '0%';
+                }, 2000);
+                return;
+            }
+            
+            const total = unassigned.length;
+            let assigned = 0;
+            
+            // Crea gruppi: singoli e coppie
+            const processed = new Set();
+            const groups = [];
+            
+            // Prima trova le coppie mustBeTogether
+            for (const person of unassigned) {
+                const fullName = getFullName(person);
+                if (processed.has(fullName)) continue;
+                
+                // Cerca se ha un partner
+                let partner = null;
+                for (const [p1, p2] of mustBeTogether) {
+                    if (p1 === fullName) {
+                        const partnerPerson = unassigned.find(p => getFullName(p) === p2);
+                        if (partnerPerson && !processed.has(p2)) {
+                            partner = partnerPerson;
+                            break;
+                        }
+                    } else if (p2 === fullName) {
+                        const partnerPerson = unassigned.find(p => getFullName(p) === p1);
+                        if (partnerPerson && !processed.has(p1)) {
+                            partner = partnerPerson;
+                            break;
+                        }
+                    }
+                }
+                
+                if (partner) {
+                    groups.push([person, partner]);
+                    processed.add(fullName);
+                    processed.add(getFullName(partner));
+                } else {
+                    groups.push([person]);
+                    processed.add(fullName);
+                }
+            }
+            
+            // Assegna ogni gruppo
+            for (let i = 0; i < groups.length; i++) {
+                const group = groups[i];
+                const person = group[0];
+                const fullName = getFullName(person);
+                
+                // Trova tavoli disponibili per questa persona
+                const available = getAvailableTables(fullName);
+                
+                if (available.length > 0) {
+                    // Scegli tavolo random tra quelli disponibili
+                    const targetTable = available[Math.floor(Math.random() * available.length)];
+                    
+                    // Assegna tutti nel gruppo allo stesso tavolo
+                    for (const p of group) {
+                        const pFullName = getFullName(p);
+                        assignedParticipants[pFullName] = targetTable;
+                        tables[targetTable].guests.push(p);
+                        assigned++;
+                    }
+                    
+                    // Aggiorna progress
+                    const percentage = Math.round((assigned / total) * 100);
+                    progressBar.style.width = percentage + '%';
+                    progressText.textContent = `Assegnati ${assigned}/${total} detective...`;
+                    
+                    // Aggiorna interfaccia
+                    renderNames();
+                    renderTables();
+                    renderTablesVisualization();
+                    updateStats();
+                    
+                    // Piccolo delay per animazione
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                } else {
+                    console.warn('Nessun tavolo disponibile per:', fullName);
+                }
+            }
+            
+            // Completa
+            progressText.textContent = '✅ Assegnazione completata!';
+            progressBar.style.width = '100%';
+            
+            // Mostra overlay se tutti assegnati
+            if (Object.keys(assignedParticipants).length === 65) {
+                setTimeout(() => {
+                    document.getElementById('complete-overlay').classList.add('active');
+                    setTimeout(() => {
+                        document.getElementById('complete-overlay').classList.remove('active');
+                    }, 3000);
+                }, 500);
+            }
+            
+            // Reset UI
+            setTimeout(() => {
+                btn.disabled = false;
+                resetBtn.disabled = false;
+                progress.classList.remove('active');
+                progressBar.style.width = '0%';
+            }, 2000);
+        }
+
+        // ============ RESET ============
+        function resetAll() {
+            console.log('resetAll() chiamata');
+            
+            // Nessuna conferma - reset diretto!
+            console.log('Inizio reset immediato...');
+            
+            try {
+                const btn = document.getElementById('mass-assign-btn');
+                const resetBtn = document.getElementById('reset-btn');
+                const progress = document.getElementById('mass-assign-progress');
+                const progressText = document.getElementById('progress-text');
+                const progressBar = document.getElementById('progress-bar-fill');
+                
+                // Disabilita pulsanti
+                btn.disabled = true;
+                resetBtn.disabled = true;
+                progress.classList.add('active');
+                progressText.textContent = '🔄 Reset in corso...';
+                progressBar.style.width = '50%';
+                
+                console.log('Elementi UI trovati e aggiornati');
+                
+                // Reset dati
+                console.log('Partecipanti assegnati prima del reset:', Object.keys(assignedParticipants).length);
+                
+                for (const key in assignedParticipants) {
+                    delete assignedParticipants[key];
+                }
+                
+                tables.forEach(table => {
+                    table.guests = [];
+                });
+                
+                console.log('Dati cancellati');
+                console.log('Partecipanti assegnati dopo il reset:', Object.keys(assignedParticipants).length);
+                
+                // Aggiorna interfaccia
+                renderNames();
+                renderTables();
+                renderTablesVisualization();
+                updateStats();
+                
+                console.log('Interfaccia aggiornata');
+                
+                // Completa
+                setTimeout(() => {
+                    progressText.textContent = '✅ Reset completato!';
+                    progressBar.style.width = '100%';
+                    
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        resetBtn.disabled = false;
+                        progress.classList.remove('active');
+                        progressBar.style.width = '0%';
+                        console.log('Reset completato con successo');
+                    }, 1500);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Errore durante il reset:', error);
+                alert('Errore durante il reset: ' + error.message);
             }
         }
 
