@@ -1833,68 +1833,69 @@
             }
         }
 
-        /* Azioni in Fondo */
+        /* Azioni in Fondo - VERSIONE COMPATTA */
         .bottom-actions {
-            margin-top: 40px;
-            padding: 30px;
-            background: linear-gradient(135deg, rgba(247, 179, 43, 0.08) 0%, rgba(49, 193, 146, 0.08) 100%);
-            border-radius: 20px;
-            border: 2px solid rgba(247, 179, 43, 0.2);
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(247, 179, 43, 0.05) 0%, rgba(49, 193, 146, 0.05) 100%);
+            border-radius: 15px;
+            border: 1px solid rgba(247, 179, 43, 0.15);
         }
         
         .bottom-actions-title {
             font-family: 'Montserrat', sans-serif;
-            font-size: 1.3rem;
-            color: #1a1a2e;
-            margin-bottom: 20px;
+            font-size: 1rem;
+            color: #64748b;
+            margin-bottom: 12px;
             text-align: center;
+            font-weight: 600;
         }
         
         .bottom-actions-buttons {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             justify-content: center;
             flex-wrap: wrap;
         }
         
         .mass-assign-btn, .reset-btn {
             border: none;
-            padding: 16px 35px;
+            padding: 12px 28px;
             border-radius: 50px;
-            font-size: 1.05rem;
+            font-size: 0.95rem;
             font-weight: 700;
             font-family: 'Montserrat', sans-serif;
             cursor: pointer;
             transition: all 0.3s ease;
             display: inline-flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
         
         .mass-assign-btn {
             background: linear-gradient(135deg, var(--giallo) 0%, #D4A029 100%);
             color: #1a1a2e;
-            box-shadow: 0 4px 15px rgba(247, 179, 43, 0.3);
+            box-shadow: 0 2px 10px rgba(247, 179, 43, 0.2);
         }
         
         .mass-assign-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 25px rgba(247, 179, 43, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(247, 179, 43, 0.3);
         }
         
         .reset-btn {
             background: linear-gradient(135deg, #e63946 0%, #c41e3a 100%);
             color: white;
-            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+            box-shadow: 0 2px 10px rgba(230, 57, 70, 0.2);
         }
         
         .reset-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 25px rgba(230, 57, 70, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
         }
         
         .mass-assign-btn:active, .reset-btn:active {
-            transform: translateY(-1px);
+            transform: translateY(0px);
         }
         
         .mass-assign-btn:disabled, .reset-btn:disabled {
@@ -1905,17 +1906,11 @@
         }
         
         .bottom-actions-info {
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(255,255,255,0.5);
-            border-radius: 12px;
-            font-size: 0.85rem;
-            color: #64748b;
-            line-height: 1.6;
+            display: none; /* Nascosto per non occupare spazio */
         }
         
         .mass-assign-progress {
-            margin-top: 20px;
+            margin-top: 15px;
             display: none;
         }
         
@@ -1924,16 +1919,16 @@
         }
         
         .progress-text {
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             color: var(--giallo);
             font-weight: 600;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-align: center;
         }
         
         .progress-bar-container {
             width: 100%;
-            height: 10px;
+            height: 8px;
             background: rgba(0,0,0,0.1);
             border-radius: 10px;
             overflow: hidden;
@@ -1947,6 +1942,10 @@
         }
         
         @media (max-width: 768px) {
+            .bottom-actions {
+                padding: 15px;
+            }
+            
             .bottom-actions-buttons {
                 flex-direction: column;
             }
@@ -1954,8 +1953,11 @@
             .mass-assign-btn, .reset-btn {
                 width: 100%;
                 justify-content: center;
+                padding: 10px 20px;
+                font-size: 0.9rem;
             }
         }
+
 
     </style>
 </head>
@@ -2069,11 +2071,6 @@
                     <div class="progress-bar-container">
                         <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%"></div>
                     </div>
-                </div>
-                <div class="bottom-actions-info">
-                    <strong>Assegnazione Automatica:</strong> Assegna tutti i detective automaticamente rispettando tutte le regole
-                    <br>
-                    <strong>Reset Tutto:</strong> Click per cancellare tutte le assegnazioni e ricominciare da zero
                 </div>
             </div>
         </section>
