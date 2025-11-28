@@ -2476,19 +2476,20 @@
                 return []; // Sherlock è pieno o ci sono problemi
             }
 
-            // DE FURIA MARIA TERESA deve andare nel tavolo da 9 (Detective Conan, index 7)
+            // DE FURIA MARIA TERESA deve andare in un tavolo da 9 (Ispettore Drebin index 5 o Detective Conan index 7)
             if (fullName === "DE FURIA MARIA TERESA") {
-                const conanTable = 7; // Detective Conan
-                if (tables[conanTable].guests.length < tables[conanTable].capacity) {
-                    // Verifica che non ci siano nemici
-                    const hasEnemies = enemies.some(enemy => 
-                        tables[conanTable].guests.some(g => getFullName(g) === enemy)
-                    );
-                    if (!hasEnemies) {
-                        return [conanTable];
+                const tablesFrom9 = [5, 7]; // Ispettore Drebin e Detective Conan
+                const availableFor9 = tablesFrom9.filter(tableIdx => {
+                    if (tables[tableIdx].guests.length < tables[tableIdx].capacity) {
+                        // Verifica che non ci siano nemici
+                        const hasEnemies = enemies.some(enemy => 
+                            tables[tableIdx].guests.some(g => getFullName(g) === enemy)
+                        );
+                        return !hasEnemies;
                     }
-                }
-                return []; // Se Conan è pieno o ci sono nemici, nessun tavolo disponibile
+                    return false;
+                });
+                return availableFor9;
             }
 
             if (partner && assignedParticipants[partner] !== undefined) {
@@ -3056,76 +3057,89 @@
             const total = unassigned.length;
             let assigned = 0;
             
-            // Crea gruppi: singoli e coppie
-            const processed = new Set();
-            const groups = [];
+            // FASE 1: Identifica e assegna PRIMA le coppie mustBeTogether
+            const couplesProcessed = new Set();
             
-            // Prima trova le coppie mustBeTogether
-            for (const person of unassigned) {
-                const fullName = getFullName(person);
-                if (processed.has(fullName)) continue;
+            for (const [name1, name2] of mustBeTogether) {
+                const person1 = unassigned.find(p => getFullName(p) === name1);
+                const person2 = unassigned.find(p => getFullName(p) === name2);
                 
-                // Cerca se ha un partner
-                let partner = null;
-                for (const [p1, p2] of mustBeTogether) {
-                    if (p1 === fullName) {
-                        const partnerPerson = unassigned.find(p => getFullName(p) === p2);
-                        if (partnerPerson && !processed.has(p2)) {
-                            partner = partnerPerson;
-                            break;
-                        }
-                    } else if (p2 === fullName) {
-                        const partnerPerson = unassigned.find(p => getFullName(p) === p1);
-                        if (partnerPerson && !processed.has(p1)) {
-                            partner = partnerPerson;
-                            break;
-                        }
+                // Se entrambi sono da assegnare
+                if (person1 && person2 && 
+                    assignedParticipants[name1] === undefined && 
+                    assignedParticipants[name2] === undefined) {
+                    
+                    console.log(`Assegnazione coppia: ${name1} + ${name2}`);
+                    
+                    // Trova tavoli disponibili per ENTRAMBI con spazio >= 2
+                    const available1 = getAvailableTables(name1);
+                    const available2 = getAvailableTables(name2);
+                    
+                    const commonTables = available1.filter(tableIdx => 
+                        available2.includes(tableIdx) && 
+                        (tables[tableIdx].capacity - tables[tableIdx].guests.length) >= 2
+                    );
+                    
+                    if (commonTables.length > 0) {
+                        const targetTable = commonTables[Math.floor(Math.random() * commonTables.length)];
+                        
+                        // Assegna ENTRAMBI allo stesso tavolo
+                        assignedParticipants[name1] = targetTable;
+                        tables[targetTable].guests.push(person1);
+                        assigned++;
+                        
+                        assignedParticipants[name2] = targetTable;
+                        tables[targetTable].guests.push(person2);
+                        assigned++;
+                        
+                        couplesProcessed.add(name1);
+                        couplesProcessed.add(name2);
+                        
+                        console.log(`✅ Coppia assegnata a tavolo ${tables[targetTable].name}`);
+                        
+                        // Aggiorna progress
+                        const percentage = Math.round((assigned / total) * 100);
+                        progressBar.style.width = percentage + '%';
+                        progressText.textContent = `Assegnati ${assigned}/${total} detective...`;
+                        
+                        renderNames();
+                        renderTables();
+                        renderTablesVisualization();
+                        updateStats();
+                        
+                        await new Promise(resolve => setTimeout(resolve, 80));
+                    } else {
+                        console.error(`❌ ERRORE: Nessun tavolo disponibile per coppia ${name1} + ${name2}`);
                     }
-                }
-                
-                if (partner) {
-                    groups.push([person, partner]);
-                    processed.add(fullName);
-                    processed.add(getFullName(partner));
-                } else {
-                    groups.push([person]);
-                    processed.add(fullName);
                 }
             }
             
-            // Assegna ogni gruppo
-            for (let i = 0; i < groups.length; i++) {
-                const group = groups[i];
-                const person = group[0];
+            // FASE 2: Assegna i singoli (escludendo quelli già assegnati come coppia)
+            for (const person of unassigned) {
                 const fullName = getFullName(person);
                 
-                // Trova tavoli disponibili per questa persona
+                // Salta se già assegnato (come coppia o altro)
+                if (assignedParticipants[fullName] !== undefined) continue;
+                
                 const available = getAvailableTables(fullName);
                 
                 if (available.length > 0) {
-                    // Scegli tavolo random tra quelli disponibili
                     const targetTable = available[Math.floor(Math.random() * available.length)];
                     
-                    // Assegna tutti nel gruppo allo stesso tavolo
-                    for (const p of group) {
-                        const pFullName = getFullName(p);
-                        assignedParticipants[pFullName] = targetTable;
-                        tables[targetTable].guests.push(p);
-                        assigned++;
-                    }
+                    assignedParticipants[fullName] = targetTable;
+                    tables[targetTable].guests.push(person);
+                    assigned++;
                     
                     // Aggiorna progress
                     const percentage = Math.round((assigned / total) * 100);
                     progressBar.style.width = percentage + '%';
                     progressText.textContent = `Assegnati ${assigned}/${total} detective...`;
                     
-                    // Aggiorna interfaccia
                     renderNames();
                     renderTables();
                     renderTablesVisualization();
                     updateStats();
                     
-                    // Piccolo delay per animazione
                     await new Promise(resolve => setTimeout(resolve, 50));
                 } else {
                     console.warn('Nessun tavolo disponibile per:', fullName);
