@@ -2499,8 +2499,10 @@
                     // Partner è in Sherlock Holmes ma questa persona non può andarci
                     // Continua con la ricerca normale (senza forzare il partner)
                 } else if (tables[partnerTable].guests.length < tables[partnerTable].capacity) {
+                    // C'è spazio → preferisci questo tavolo
                     return [partnerTable];
                 }
+                // Se il tavolo è pieno, continua normalmente e cerca altri tavoli
             }
 
             return tables.map((t, i) => i).filter(i => {
@@ -2514,6 +2516,14 @@
                 
                 // Controllo overbooking
                 if (table.guests.length >= table.capacity) return false;
+                
+                // OTTIMIZZAZIONE COPPIE: Se questa persona fa parte di una coppia non ancora completa
+                // ed il tavolo ha SOLO 1 posto libero, escludilo (per lasciare spazio alla coppia)
+                const availableSpots = table.capacity - table.guests.length;
+                if (isPartOfUnassignedCouple(fullName) && availableSpots === 1) {
+                    // Salta questo tavolo per riservare spazio alla coppia
+                    return false;
+                }
                 
                 // Verifica nemici
                 for (const enemy of enemies) {
@@ -2822,6 +2832,73 @@
             });
         }
 
+        // ============ VALIDAZIONE COPPIE ============
+        function getUnassignedCouples() {
+            // Conta quante coppie mustBeTogether non sono ancora completamente assegnate
+            const unassignedCouples = [];
+            for (const [name1, name2] of mustBeTogether) {
+                const assigned1 = assignedParticipants[name1] !== undefined;
+                const assigned2 = assignedParticipants[name2] !== undefined;
+                
+                // Se almeno uno dei due non è assegnato, la coppia è "in sospeso"
+                if (!assigned1 || !assigned2) {
+                    unassignedCouples.push([name1, name2]);
+                }
+            }
+            return unassignedCouples;
+        }
+        
+        function isPartOfUnassignedCouple(fullName) {
+            // Verifica se questa persona fa parte di una coppia non ancora completa
+            const partner = findPartner(fullName);
+            if (!partner) return false;
+            
+            const thisAssigned = assignedParticipants[fullName] !== undefined;
+            const partnerAssigned = assignedParticipants[partner] !== undefined;
+            
+            // La coppia è "in sospeso" se uno dei due non è ancora assegnato
+            return !thisAssigned || !partnerAssigned;
+        }
+        
+        function validateCouples() {
+            const violations = [];
+            
+            // Verifica coppie mustBeTogether
+            for (const [name1, name2] of mustBeTogether) {
+                const table1 = assignedParticipants[name1];
+                const table2 = assignedParticipants[name2];
+                
+                // Se entrambi sono assegnati ma in tavoli diversi
+                if (table1 !== undefined && table2 !== undefined && table1 !== table2) {
+                    violations.push({
+                        type: 'together',
+                        name1: name1,
+                        name2: name2,
+                        table1: tables[table1].name,
+                        table2: tables[table2].name
+                    });
+                }
+            }
+            
+            // Verifica coppie mustBeSeparate
+            for (const [name1, name2] of mustBeSeparate) {
+                const table1 = assignedParticipants[name1];
+                const table2 = assignedParticipants[name2];
+                
+                // Se entrambi sono assegnati allo stesso tavolo
+                if (table1 !== undefined && table2 !== undefined && table1 === table2) {
+                    violations.push({
+                        type: 'separate',
+                        name1: name1,
+                        name2: name2,
+                        table: tables[table1].name
+                    });
+                }
+            }
+            
+            return violations;
+        }
+
         function updateStats() {
             const assigned = Object.keys(assignedParticipants).length;
             const remaining = 66 - assigned;
@@ -2831,8 +2908,29 @@
             document.getElementById('remaining-count').textContent = remaining;
 
             if (assigned === 66) {
+                // Valida le coppie (solo per log admin - invisibile agli utenti)
+                const violations = validateCouples();
+                
+                if (violations.length > 0) {
+                    // Log SOLO in console per l'amministratore
+                    console.warn('⚠️ ATTENZIONE ADMIN: Violazioni regole coppie:');
+                    violations.forEach(v => {
+                        if (v.type === 'together') {
+                            console.warn(`❌ ${v.name1} e ${v.name2} dovrebbero essere insieme ma sono in tavoli diversi:`);
+                            console.warn(`   ${v.name1} → ${v.table1}`);
+                            console.warn(`   ${v.name2} → ${v.table2}`);
+                        } else {
+                            console.warn(`❌ ${v.name1} e ${v.name2} dovrebbero essere separati ma sono entrambi a ${v.table}`);
+                        }
+                    });
+                }
+                
+                // Mostra sempre l'overlay normale (nessun warning visibile)
                 setTimeout(() => {
                     document.getElementById('complete-overlay').classList.add('active');
+                    setTimeout(() => {
+                        document.getElementById('complete-overlay').classList.remove('active');
+                    }, 3000);
                 }, 1000);
             }
         }
@@ -2934,7 +3032,7 @@
                     let message = `⚠️ Impossibile assegnare ${selectedPerson.name} ${selectedPerson.surname}!\n\n`;
                     
                     if (fullName === "DE FURIA MARIA TERESA") {
-                        message += 'Il tavolo Detective Conan (9 posti) è già pieno o occupato da persone incompatibili.';
+                        message += 'I tavoli da 9 posti (Ispettore Drebin e Detective Conan) sono pieni o occupati da persone incompatibili.';
                     } else {
                         message += 'Nessun tavolo disponibile. Possibili cause:\n';
                         message += '• Tutti i tavoli sono pieni\n';
@@ -3081,7 +3179,17 @@
                     );
                     
                     if (commonTables.length > 0) {
-                        const targetTable = commonTables[Math.floor(Math.random() * commonTables.length)];
+                        // OTTIMIZZAZIONE: Preferisci tavoli con PIÙ posti liberi
+                        // per lasciare spazio ad altre coppie future
+                        const tablesBySpace = commonTables.map(idx => ({
+                            idx: idx,
+                            freeSpots: tables[idx].capacity - tables[idx].guests.length
+                        })).sort((a, b) => b.freeSpots - a.freeSpots);
+                        
+                        // Scegli tra i primi 3 tavoli con più spazio (per mantenere casualità)
+                        const topTables = tablesBySpace.slice(0, Math.min(3, tablesBySpace.length));
+                        const chosen = topTables[Math.floor(Math.random() * topTables.length)];
+                        const targetTable = chosen.idx;
                         
                         // Assegna ENTRAMBI allo stesso tavolo
                         assignedParticipants[name1] = targetTable;
@@ -3095,7 +3203,7 @@
                         couplesProcessed.add(name1);
                         couplesProcessed.add(name2);
                         
-                        console.log(`✅ Coppia assegnata a tavolo ${tables[targetTable].name}`);
+                        console.log(`✅ Coppia assegnata a tavolo ${tables[targetTable].name} (${chosen.freeSpots} posti liberi)`);
                         
                         // Aggiorna progress
                         const percentage = Math.round((assigned / total) * 100);
@@ -3124,7 +3232,22 @@
                 const available = getAvailableTables(fullName);
                 
                 if (available.length > 0) {
-                    const targetTable = available[Math.floor(Math.random() * available.length)];
+                    let targetTable;
+                    
+                    // OTTIMIZZAZIONE: Se fa parte di una coppia, preferisci tavoli con più spazio
+                    if (isPartOfUnassignedCouple(fullName)) {
+                        const tablesBySpace = available.map(idx => ({
+                            idx: idx,
+                            freeSpots: tables[idx].capacity - tables[idx].guests.length
+                        })).sort((a, b) => b.freeSpots - a.freeSpots);
+                        
+                        // Scegli tra i primi 2 tavoli con più spazio
+                        const topTables = tablesBySpace.slice(0, Math.min(2, tablesBySpace.length));
+                        targetTable = topTables[Math.floor(Math.random() * topTables.length)].idx;
+                    } else {
+                        // Persona singola: scegli casualmente
+                        targetTable = available[Math.floor(Math.random() * available.length)];
+                    }
                     
                     assignedParticipants[fullName] = targetTable;
                     tables[targetTable].guests.push(person);
